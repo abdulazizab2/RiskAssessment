@@ -5,12 +5,7 @@ import os
 from sklearn.linear_model import LogisticRegression
 import json
 from risk_assessment.utils.logger import logging
-
-
-def preprocess_data(data: pd.DataFrame):
-    X = data.drop(columns=["corporation"])
-    y = data["corporation"]
-    return X, y
+from risk_assessment.common import preprocess_data
 
 
 def train_model(X, y, model_output_path):
