@@ -4,7 +4,7 @@ import numpy as np
 import os
 import json
 from datetime import datetime
-from RiskAssessment.utils.logger import logging
+from risk_assessment.utils.logger import logging
 
 
 def merge_multiple_dataframe(config):
