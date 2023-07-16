@@ -1,0 +1,5 @@
+outs:
+- md5: aa507495e067fb71da3fcd2b218cacb4
+  size: 6
+  hash: md5
+  path: latest_score.txt
