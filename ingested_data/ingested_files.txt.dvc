@@ -1,0 +1,5 @@
+outs:
+- md5: cd42c89c4aa3ea3772a281b8798e5816
+  size: 26
+  hash: md5
+  path: ingested_files.txt
