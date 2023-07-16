@@ -20,10 +20,12 @@ def merge_multiple_dataframe(config):
     df.drop_duplicates(inplace=True)
     if not os.path.exists(output_folder_path):
         os.mkdir(output_folder_path)
-    df.to_csv(os.path.join(output_folder_path, "final_data.csv"))
+    df.to_csv(os.path.join(output_folder_path, "final_data.csv"), index=False)
     with open(os.path.join(output_folder_path, "ingested_files.txt"), "w") as f:
         f.write(ingested_files)
-    logging.info("SUCCESS: Source data has been ingested and saved to ingested_data/")
+    logging.info(
+        f"SUCCESS: Source data has been ingested and saved to {output_folder_path}/ folder"
+    )
 
 
 if __name__ == "__main__":
