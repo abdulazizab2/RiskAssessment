@@ -3,27 +3,74 @@ import scoring
 import deployment
 import diagnostics
 import reporting
-
-##################Check and read new data
-# first, read ingestedfiles.txt
-
-# second, determine whether the source data folder has files that aren't listed in ingestedfiles.txt
-
-
-##################Deciding whether to proceed, part 1
-# if you found new data, you should proceed. otherwise, do end the process here
-
-
-##################Checking for model drift
-# check whether the score from the deployed model is different from the score from the model that uses the newest ingested data
+import json
+import os
+import subprocess
+import sys
+import pickle
+import pandas as pd
+from risk_assessment.common import preprocess_data
+from risk_assessment.scoring import score_model
+from risk_assessment.utils.logger import logging
 
 
-##################Deciding whether to proceed, part 2
-# if you found model drift, you should proceed. otherwise, do end the process here
+def get_ingested_files(deployment_path):
+    with open(deployment_path, "r") as f:
+        ingested_files = f.read().splitlines()
+    return ingested_files
 
 
-##################Re-deployment
-# if you found evidence for model drift, re-run the deployment.py script
+def check_new_files(ingested_files, source_data_path):
+    for file in os.listdir(source_data_path):
+        if not file.endswith(".csv"):
+            continue
+        if file not in ingested_files:
+            return True
+    return False
 
-##################Diagnostics and reporting
-# run diagnostics.py and reporting.py for the re-deployed model
+
+def check_model_drift(deployment_path, final_data_path):
+    with open(os.path.join(deployment_path, "latest_score.txt"), "r") as f:
+        score = float(f.read())
+    with open(os.path.join(deployment_path, "trained_model.pkl"), "rb") as f:
+        model = pickle.load(f)
+    data = pd.read_csv(final_data_path)
+    X, y = preprocess_data(data)
+    new_score = score_model(
+        model=model, data=(X, y), save_result=False, results_path=None
+    )
+    return new_score > score
+
+
+def main():
+    with open("config.json", "r") as f:
+        config = json.load(f)
+    deployment_path = config["prod_deployment_path"]
+    ingested_files_path = os.path.join(
+        config["prod_deployment_path"], "ingested_files.txt"
+    )
+    source_data_path = config["input_folder_path"]
+    ingested_files = get_ingested_files(ingested_files_path)
+    is_new_data = check_new_files(ingested_files, source_data_path)
+    if not is_new_data:
+        logging.info("No recent data ingested. Exiting")
+        sys.exit(-1)
+    subprocess.Popen(["python", "risk_assessment/ingestion.py"])
+    logging.info("SUCCESS: New data ingested")
+    final_data_path = os.path.join(config["output_folder_path"], "final_data.csv")
+    is_drifted = check_model_drift(deployment_path, final_data_path)
+    if not is_drifted:
+        logging.info("Model has not drifted, redeploying terminated. Exiting")
+        sys.exit(-1)
+    subprocess.Popen(["python", "risk_assessment/training.py"])
+    logging.info("SUCCESS: New model trained")
+    subprocess.Popen(["python", "risk_assessment/deployment.py"])
+    logging.info("SUCCESS: New trained model is deployed")
+    subprocess.Popen(["uvicorn", "app:app"])
+    subprocess.Popen(["python", "risk_assessment/api_calls.py"])
+    subprocess.Popen(["python", "risk_assessment/reporting.py"])
+    logging.info("SUCCESS: Results are saved in models/ directory")
+
+
+if __name__ == "__main__":
+    main()
