@@ -1,49 +1,64 @@
-from flask import Flask, session, jsonify, request
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
+import uvicorn
 import pandas as pd
 import numpy as np
 import pickle
-import create_prediction_model
-import diagnosis 
-import predict_exited_from_saved_model
+from typing import Optional
 import json
 import os
+from risk_assessment.utils.logger import logging
+from risk_assessment.diagnostics import (
+    model_predictions,
+    dataframe_summary,
+    report_missing_data,
+    execution_time,
+    outdated_packages_list,
+)
+from risk_assessment.scoring import score_model
+from risk_assessment.common import preprocess_data
+
+app = FastAPI()
 
 
-
-######################Set up variables for use in our script
-app = Flask(__name__)
-
-with open('config.json','r') as f:
-    config = json.load(f) 
-
-dataset_csv_path = os.path.join(config['output_folder_path']) 
-
-prediction_model = None
+with open("config.json", "r") as f:
+    config = json.load(f)
+model_path = os.path.join(config["prod_deployment_path"], "trained_model.pkl")
+data_path = os.path.join(config["test_data_path"], "testdata.csv")
 
 
-#######################Prediction Endpoint
-@app.route("/prediction", methods=['POST','OPTIONS'])
-def predict():        
-    #call the prediction function you created in Step 3
-    return #add return value for prediction outputs
+@app.post("/prediction")
+def predict(data_path: str):
+    preds, _ = model_predictions(model_path, data_path)
+    return json.dumps(preds.tolist())
 
-#######################Scoring Endpoint
-@app.route("/scoring", methods=['GET','OPTIONS'])
-def stats():        
-    #check the score of the deployed model
-    return #add return value (a single F1 score number)
 
-#######################Summary Statistics Endpoint
-@app.route("/summarystats", methods=['GET','OPTIONS'])
-def stats():        
-    #check means, medians, and modes for each column
-    return #return a list of all calculated summary statistics
+@app.post("/scoring")
+def stats():
+    with open(model_path, "rb") as f:
+        model = pickle.load(f)
+    X, y = preprocess_data(pd.read_csv(data_path))
+    f1_score_ = score_model(model, data=(X, y), save_result=False)
+    return json.dumps(f1_score_)
 
-#######################Diagnostics Endpoint
-@app.route("/diagnostics", methods=['GET','OPTIONS'])
-def stats():        
-    #check timing and percent NA values
-    return #add return value for all diagnostics
 
-if __name__ == "__main__":    
-    app.run(host='0.0.0.0', port=8000, debug=True, threaded=True)
+@app.post("/summarystats")
+def stats():
+    stats = dataframe_summary(data_path)
+    return json.dumps(stats)
+
+
+@app.post("/diagnostics")
+def stats():
+    missing_data = report_missing_data(data_path)
+    time_data = execution_time()
+    dependency_data = outdated_packages_list()
+    return {
+        "missing_data": missing_data,
+        "timing_stats": time_data,
+        "dependency_report": dependency_data,
+    }
+
+
+if __name__ == "__main__":
+    uvicorn.run(host="0.0.0.0", port=8000)
