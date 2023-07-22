@@ -18,10 +18,10 @@ def model_predictions(model_path, test_data_path):
         logging.error(f"{err}. Make sure you have deployed the model successfully")
         raise
     data = pd.read_csv(test_data_path)
-    X, _ = preprocess_data(data)
+    X, y = preprocess_data(data)
     preds = model.predict(X)
     logging.info("SUCCESS: Deployed model made predictions against test data")
-    return preds
+    return preds, y
 
 
 def dataframe_summary(data_path):
