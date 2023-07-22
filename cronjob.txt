@@ -1,0 +1,1 @@
+*/10 * * * * /usr/bin/python3 /home/RiskAssessment/risk_assessment/fullprocess.py
