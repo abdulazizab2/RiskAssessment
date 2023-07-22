@@ -34,7 +34,7 @@ def predict(data_path: str):
 
 
 @app.post("/scoring")
-def stats():
+def stats(data_path: Optional[str] = data_path):
     with open(model_path, "rb") as f:
         model = pickle.load(f)
     X, y = preprocess_data(pd.read_csv(data_path))
@@ -43,13 +43,13 @@ def stats():
 
 
 @app.post("/summarystats")
-def stats():
+def stats(data_path: Optional[str] = data_path):
     stats = dataframe_summary(data_path)
     return json.dumps(stats)
 
 
 @app.post("/diagnostics")
-def stats():
+def stats(data_path: Optional[str] = data_path):
     missing_data = report_missing_data(data_path)
     time_data = execution_time()
     dependency_data = outdated_packages_list()
